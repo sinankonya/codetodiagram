@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>Code to Diagram...</title>
+</head>
+
+<body>
+  <h1>Code to Diagram...</h1>
+
+  <div id="message"></div>
+
+  <Table>
+    <tr align="center">
+      <td>
+        <textarea id="codeTxt" rows="30" cols="50"></textarea>
+      </td>
+      <td> <button id="drawBtn"> Draw >>> </button></td>
+      <td>
+        <img id="imageResult" src="" />
+      </td>
+      <td>
+        <button id="downloadBtn" style="display: none;">Download Image</button>
+      </td>
+    </tr>
+  </table>
+
+  <script>
+    const drawBtn = document.getElementById('drawBtn');
+    const codeTxt = document.getElementById('codeTxt');
+    const message = document.getElementById('message');
+    const imageResult = document.getElementById('imageResult');
+
+
+    drawBtn.addEventListener('click', () => {
+      const code = codeTxt.value;
+      imageResult.src = '';
+      message.textContent = '';
+      downloadBtn.style.display = "none";
+
+      // Call the drawDiagram service
+      fetch('/drawDiagram', {
+        method: 'POST',
+        body: code
+      })
+        .then(result => {
+
+          if (!result.ok) {
+            // Parse and display error message
+            result.json().then(json => {
+              message.textContent = json.error;
+
+            }).catch(parseError => {
+              message.textContent = parseError;
+
+            });
+          }
+          else {
+            const reader = result.body.getReader();
+            // Function to process the streamed data
+            function processStream({ done, value }) {
+              if (done) {
+                console.log('Stream complete');
+                return;
+              }
+              // Convert the chunk to a Uint8Array
+              const chunk = value;
+              const data = new Uint8Array(chunk.length);
+              for (let i = 0; i < chunk.length; i++) {
+                data[i] = chunk[i];
+              }
+
+              // Convert the Uint8Array to a Base64-encoded string
+              const base64Data = btoa(String.fromCharCode.apply(null, data));
+
+              // Update the image source with the Base64-encoded data
+              imageResult.src = 'data:image/jpeg;base64,' + base64Data;
+
+              // Read the next chunk
+              return reader.read().then(processStream);
+            }
+
+            imageResult.onload = function () {
+              // Show the download button when there is a Diagram (image)
+              downloadBtn.style.display = "block";
+            };
+
+            // Start reading the stream
+            return reader.read().then(processStream);
+          }
+        })
+        .catch(error => {
+          message.textContent = error;
+        });
+    });
+
+
+    document.getElementById("downloadBtn").addEventListener("click", function () {
+      const imageResult = document.getElementById("imageResult");
+      // Check if the image source is available
+      if (imageResult.src) {
+        // Create a temporary anchor element to trigger the download
+        const link = document.createElement("a");
+        link.href = imageResult.src;
+        link.download = "diagram.png";
+        link.target = "_blank";
+        // Programmatically trigger the click event on the anchor element
+        link.click();
+      }
+    });
+
+  </script>
+</body>
+
+</html>
